@@ -1,0 +1,43 @@
+COMP4321 Project - Phase 1 Python Database Design
+
+We migrated from the Java JDBM approach to a relational SQLite database.
+
+Tables:
+
+1. page
+   - page_id (INTEGER PRIMARY KEY)
+   - url (TEXT UNIQUE)
+   - title (TEXT)
+   - last_modified (TEXT)
+   - size (INTEGER)
+   Maps URLs to integer IDs and stores page metadata (forward index).
+
+2. link
+   - parent_id (INTEGER)
+   - child_id (INTEGER)
+   Stores parent-child page relationships (edges in the web graph).
+
+3. word
+   - word_id (INTEGER PRIMARY KEY)
+   - word (TEXT UNIQUE)
+   Maps stemmed string keywords to integer IDs to save storage space.
+
+4. posting_body
+   - word_id (INTEGER)
+   - page_id (INTEGER)
+   - freq (INTEGER)
+   - positions (TEXT - JSON array)
+   The inverted index for page bodies. Stores the document term frequency and a JSON-serialized list of positional offsets for exact phrase searching later on.
+
+5. posting_title
+   - word_id (INTEGER)
+   - page_id (INTEGER)
+   - freq (INTEGER)
+   - positions (TEXT - JSON array)
+   The inverted index for page titles.
+
+6. keyword_freq
+   - page_id (INTEGER)
+   - word_id (INTEGER)
+   - freq (INTEGER)
+   A forward index table to efficiently answer "What are the top K keywords for page X?".
