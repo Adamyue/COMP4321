@@ -10,7 +10,7 @@ from stop_stem import StopStem
 
 
 class Crawler:
-    def __init__(self, seed_url, max_pages=300, db_name="spider.db"):
+    def __init__(self, seed_url, max_pages=30, db_name="spider.db"):
         self.seed_url = seed_url
         self.max_pages = max_pages
         self.indexer = Indexer(db_name)
@@ -111,11 +111,13 @@ class Crawler:
 
             self.indexer.commit()
 
+        self.indexer.clean_stubs()
+
 
 if __name__ == "__main__":
     crawler = Crawler(
         seed_url="https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm",
-        max_pages=300,
+        max_pages=30,
     )
     crawler.crawl()
     crawler.indexer.close()

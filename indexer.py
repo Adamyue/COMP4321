@@ -103,6 +103,12 @@ class Indexer:
         self.cursor.execute("DELETE FROM posting_title WHERE page_id = ?", (page_id,))
         self.cursor.execute("DELETE FROM keyword_freq WHERE page_id = ?", (page_id,))
 
+    def clean_stubs(self):
+        # Remove stub rows (URLs discovered as links but never fetched) and their link entries
+        self.cursor.execute("DELETE FROM link WHERE child_id IN (SELECT page_id FROM page WHERE title IS NULL)")
+        self.cursor.execute("DELETE FROM page WHERE title IS NULL")
+        self.conn.commit()
+
     def add_posting(self, is_title, page_id, word_id, position):
         table = "posting_title" if is_title else "posting_body"
         self.cursor.execute(f"SELECT freq, positions FROM {table} WHERE word_id = ? AND page_id = ?", (word_id, page_id))
