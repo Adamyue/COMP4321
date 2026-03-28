@@ -92,6 +92,15 @@ class Indexer:
         self.cursor.execute("SELECT child_id FROM link WHERE parent_id = ?", (page_id,))
         return [row[0] for row in self.cursor.fetchall()]
 
+    def get_parent_links(self, page_id):
+        self.cursor.execute("SELECT parent_id FROM link WHERE child_id = ?", (page_id,))
+        return [row[0] for row in self.cursor.fetchall()]
+
+    def clear_page_index(self, page_id):
+        self.cursor.execute("DELETE FROM posting_body WHERE page_id = ?", (page_id,))
+        self.cursor.execute("DELETE FROM posting_title WHERE page_id = ?", (page_id,))
+        self.cursor.execute("DELETE FROM keyword_freq WHERE page_id = ?", (page_id,))
+
     def add_posting(self, is_title, page_id, word_id, position):
         table = "posting_title" if is_title else "posting_body"
         self.cursor.execute(f"SELECT freq, positions FROM {table} WHERE word_id = ? AND page_id = ?", (word_id, page_id))
