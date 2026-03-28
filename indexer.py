@@ -93,10 +93,12 @@ class Indexer:
         return [row[0] for row in self.cursor.fetchall()]
 
     def get_parent_links(self, page_id):
+        # The assignment description for crawler says thatthe crawler should be able to retrieve parents from child IDs as well
         self.cursor.execute("SELECT parent_id FROM link WHERE child_id = ?", (page_id,))
         return [row[0] for row in self.cursor.fetchall()]
 
     def clear_page_index(self, page_id):
+        # To avoid duplicates when re-crawling the same page multiple times due to update in last_modified
         self.cursor.execute("DELETE FROM posting_body WHERE page_id = ?", (page_id,))
         self.cursor.execute("DELETE FROM posting_title WHERE page_id = ?", (page_id,))
         self.cursor.execute("DELETE FROM keyword_freq WHERE page_id = ?", (page_id,))
