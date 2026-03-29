@@ -1,43 +1,187 @@
-COMP4321 Project - Phase 1 Python Database Design
+COMP4321 Phase 1 – Database Design Document
+============================================
 
-We migrated from the Java JDBM approach to a relational SQLite database.
+Implementation: SQLite (via Python's sqlite3 module)
+Database file: spider.db
 
-Tables:
+Overview
+--------
+The indexer uses a single SQLite database (spider.db) containing six tables.
+Together they implement:
+  - A URL ↔ page-ID bidirectional mapping (forward index)
+  - A word ↔ word-ID bidirectional mapping
+  - Two inverted files (body and title) for keyword lookup
+  - A parent/child link structure for graph traversal
+  - A per-page keyword frequency table for result display
+
+All words stored in the index have already had stop words removed and have
+been reduced to their Porter stems before insertion.
+
+
+Table Definitions
+-----------------
 
 1. page
-   - page_id (INTEGER PRIMARY KEY)
-   - url (TEXT UNIQUE)
-   - title (TEXT)
-   - last_modified (TEXT)
-   - size (INTEGER)
-   Maps URLs to integer IDs and stores page metadata (forward index).
+   Purpose: Forward index and URL ↔ page-ID mapping.
+            Every URL ever discovered (either fetched or found as a link target)
+            is assigned a unique integer page-ID the first time it is seen.
+            The metadata fields (title, last_modified, size) are populated only
+            after the page has been successfully fetched and indexed.
+
+   Schema:
+     page_id       INTEGER  PRIMARY KEY AUTOINCREMENT
+     url           TEXT     UNIQUE NOT NULL
+     title         TEXT     (NULL until the page is fetched)
+     last_modified TEXT     (NULL until the page is fetched)
+     size          INTEGER  (NULL until the page is fetched; in bytes)
+
+   Usage:
+     - get_page_id(url)       : INSERT OR SELECT → returns page_id
+     - get_url(page_id)       : SELECT url for a given page_id
+     - add_page_info(...)     : UPDATE title/last_modified/size after fetch
+     - get_page_info(page_id) : SELECT title, last_modified, size
+     - Pages that were discovered as link targets but never fetched are called
+       "stubs" (title IS NULL). Stubs are cleaned up by clean_stubs() after
+       the crawl completes to keep the database tidy.
+
 
 2. link
-   - parent_id (INTEGER)
-   - child_id (INTEGER)
-   Stores parent-child page relationships (edges in the web graph).
+   Purpose: Stores the directed parent → child hyperlink graph.
+            Enables bidirectional traversal: given a parent page-ID, retrieve
+            its children; given a child page-ID, retrieve its parents.
+
+   Schema:
+     parent_id  INTEGER  NOT NULL  (FK → page.page_id)
+     child_id   INTEGER  NOT NULL  (FK → page.page_id)
+     PRIMARY KEY (parent_id, child_id)
+
+   Usage:
+     - add_link(parent_id, child_id)   : INSERT OR IGNORE (deduplication)
+     - get_child_links(page_id)        : SELECT child_id WHERE parent_id = ?
+     - get_parent_links(page_id)       : SELECT parent_id WHERE child_id = ?
+   
+   Note: The composite primary key naturally prevents duplicate link entries
+         even when a page is re-crawled.
+
 
 3. word
-   - word_id (INTEGER PRIMARY KEY)
-   - word (TEXT UNIQUE)
-   Maps stemmed string keywords to integer IDs to save storage space.
+   Purpose: Vocabulary table providing a word ↔ word-ID bidirectional mapping.
+            Stores each unique stemmed word (after stop-word removal and
+            Porter stemming) exactly once.
+
+   Schema:
+     word_id  INTEGER  PRIMARY KEY AUTOINCREMENT
+     word     TEXT     UNIQUE NOT NULL
+
+   Usage:
+     - get_word_id(word)   : INSERT OR SELECT → returns word_id
+     - get_word(word_id)   : SELECT word for a given word_id
+
 
 4. posting_body
-   - word_id (INTEGER)
-   - page_id (INTEGER)
-   - freq (INTEGER)
-   - positions (TEXT - JSON array)
-   The inverted index for page bodies. Stores the document term frequency and a JSON-serialized list of positional offsets for exact phrase searching later on.
+   Purpose: Inverted index for page body text.
+            For each (word, page) pair, stores the term frequency and the
+            list of positions where the word appears in the body. Position
+            data enables phrase search (e.g., "hong kong").
+
+   Schema:
+     word_id    INTEGER  NOT NULL  (FK → word.word_id)
+     page_id    INTEGER  NOT NULL  (FK → page.page_id)
+     freq       INTEGER  NOT NULL  (term frequency in the body)
+     positions  TEXT     NOT NULL  (JSON-encoded list of integer positions,
+                                    e.g. "[3, 17, 42]")
+     PRIMARY KEY (word_id, page_id)
+
+   Usage:
+     - add_posting(is_title=False, page_id, word_id, position)
+       Inserts a new row on first occurrence; on subsequent occurrences it
+       increments freq and appends the position to the JSON array.
+     - Used by the search engine to compute tf×idf scores and to verify
+       phrase adjacency for phrase queries.
+
 
 5. posting_title
-   - word_id (INTEGER)
-   - page_id (INTEGER)
-   - freq (INTEGER)
-   - positions (TEXT - JSON array)
-   The inverted index for page titles.
+   Purpose: Inverted index for page title text.
+            Structurally identical to posting_body but covers only the words
+            extracted from the <title> element. Kept separate so that title
+            matches can be boosted independently during ranking.
+
+   Schema:
+     word_id    INTEGER  NOT NULL  (FK → word.word_id)
+     page_id    INTEGER  NOT NULL  (FK → page.page_id)
+     freq       INTEGER  NOT NULL  (term frequency in the title)
+     positions  TEXT     NOT NULL  (JSON-encoded list of integer positions)
+     PRIMARY KEY (word_id, page_id)
+
+   Usage:
+     - add_posting(is_title=True, page_id, word_id, position)
+     - Queried separately from posting_body to allow a title-match boost
+       when computing cosine similarity scores.
+
 
 6. keyword_freq
-   - page_id (INTEGER)
-   - word_id (INTEGER)
-   - freq (INTEGER)
-   A forward index table to efficiently answer "What are the top K keywords for page X?".
+   Purpose: Pre-computed per-page keyword frequency summary used for
+            result display. Stores only body-term frequencies (not title).
+            Supports efficient retrieval of the top-N most frequent keywords
+            per page without re-scanning the posting list.
+
+   Schema:
+     page_id  INTEGER  NOT NULL  (FK → page.page_id)
+     word_id  INTEGER  NOT NULL  (FK → word.word_id)
+     freq     INTEGER  NOT NULL  (total body frequency of the word in the page)
+     PRIMARY KEY (page_id, word_id)
+
+   Usage:
+     - add_keyword_freq(page_id, word_id, freq)  : INSERT OR IGNORE
+     - get_keyword_freqs(page_id, limit=10)
+       Returns up to 10 (word_id, freq) pairs ordered by freq DESC, used
+       when generating the spider_result.txt output and the web interface
+       result display.
+
+   Note: Because keyword_freq is populated once per (page, word) via
+         INSERT OR IGNORE, clear_page_index() deletes all rows for a
+         page_id before re-indexing, preventing stale entries.
+
+
+Relationships Summary
+---------------------
+
+  page ←──(parent_id)── link ──(child_id)──→ page
+  page ←──(page_id)──── posting_body ──(word_id)──→ word
+  page ←──(page_id)──── posting_title ──(word_id)──→ word
+  page ←──(page_id)──── keyword_freq ──(word_id)──→ word
+
+
+Design Decisions
+----------------
+
+1. Two separate inverted files (posting_body / posting_title)
+   The project specification requires that body and title stems be indexed
+   separately. A title match receives a higher relevance boost during
+   tf×idf/cosine-similarity ranking. Keeping them in distinct tables avoids
+   any schema ambiguity and makes query-time merging straightforward.
+
+2. JSON-encoded position lists
+   SQLite does not natively support array columns. Storing positions as a
+   JSON string (e.g., "[3, 17, 42]") is compact, trivially decoded with
+   json.loads(), and sufficient for phrase-search proximity checks without
+   requiring an additional junction table.
+
+3. Stub pages and clean_stubs()
+   When the crawler extracts links, target URLs are immediately inserted into
+   the page table (as stubs with title IS NULL) so that a page_id can be
+   assigned and the link relationship recorded. After the crawl finishes,
+   clean_stubs() removes these stub rows and their associated link entries,
+   keeping the database consistent.
+
+4. clear_page_index() for incremental re-crawls
+   If a page is re-fetched because its Last-Modified date has changed, all
+   posting_body, posting_title, and keyword_freq rows for that page are
+   deleted before the page is re-indexed. This prevents posting frequency
+   counts from doubling on repeated crawl runs.
+
+5. keyword_freq as a display cache
+   Querying posting_body ORDER BY freq for every page at result-display time
+   would be expensive. keyword_freq acts as a materialized summary, storing
+   body-word frequencies directly so that the top-10 keywords per page can
+   be fetched with a single indexed lookup.
