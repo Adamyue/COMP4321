@@ -45,6 +45,11 @@ class Indexer:
                 freq INTEGER,
                 PRIMARY KEY (page_id, word_id)
             );
+            CREATE INDEX IF NOT EXISTS idx_posting_body_word ON posting_body(word_id);
+            CREATE INDEX IF NOT EXISTS idx_posting_title_word ON posting_title(word_id);
+            CREATE INDEX IF NOT EXISTS idx_word_word ON word(word);
+            CREATE INDEX IF NOT EXISTS idx_link_parent ON link(parent_id);
+            CREATE INDEX IF NOT EXISTS idx_link_child ON link(child_id);
         ''')
         self.conn.commit()
 

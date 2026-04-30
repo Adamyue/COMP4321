@@ -117,7 +117,7 @@ class Crawler:
 if __name__ == "__main__":
     crawler = Crawler(
         seed_url="https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm",
-        max_pages=30,
+        max_pages=300,
     )
     crawler.crawl()
     crawler.indexer.close()
