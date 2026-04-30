@@ -111,6 +111,8 @@ class Crawler:
 
             self.indexer.commit()
 
+        # Remove pages from previous crawls that are no longer in the top 30 BFS
+        self.indexer.remove_pages_not_in(visited)
         self.indexer.clean_stubs()
 
 

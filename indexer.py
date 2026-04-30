@@ -98,7 +98,7 @@ class Indexer:
         return [row[0] for row in self.cursor.fetchall()]
 
     def get_parent_links(self, page_id):
-        # The assignment description for crawler says thatthe crawler should be able to retrieve parents from child IDs as well
+        # The assignment description for crawler says that the crawler should be able to retrieve parents from child IDs as well
         self.cursor.execute("SELECT parent_id FROM link WHERE child_id = ?", (page_id,))
         return [row[0] for row in self.cursor.fetchall()]
 
@@ -107,6 +107,16 @@ class Indexer:
         self.cursor.execute("DELETE FROM posting_body WHERE page_id = ?", (page_id,))
         self.cursor.execute("DELETE FROM posting_title WHERE page_id = ?", (page_id,))
         self.cursor.execute("DELETE FROM keyword_freq WHERE page_id = ?", (page_id,))
+
+    def remove_pages_not_in(self, visited_urls):
+        # Remove pages that are no longer in the current crawl's top 30 BFS
+        all_ids = self.cursor.execute("SELECT page_id, url FROM page WHERE title IS NOT NULL").fetchall()
+        for page_id, url in all_ids:
+            if url not in visited_urls:
+                self.clear_page_index(page_id)
+                self.cursor.execute("DELETE FROM link WHERE parent_id = ? OR child_id = ?", (page_id, page_id))
+                self.cursor.execute("DELETE FROM page WHERE page_id = ?", (page_id,))
+        self.conn.commit()
 
     def clean_stubs(self):
         # Remove stub rows (URLs discovered as links but never fetched) and their link entries
