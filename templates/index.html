@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COMP4321 Search Engine</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header>
+  <h1>COMP4321 Search Engine</h1>
+</header>
+
+<form method="POST" action="/">
+  <div class="search-bar">
+    <input
+      type="text"
+      name="query"
+      value="{{ query | e }}"
+      placeholder='Keywords or "exact phrase"'
+      autofocus
+    >
+    <button type="submit">Search</button>
+  </div>
+  <p class="hint">Tip: wrap phrases in double quotes, e.g. <em>"hong kong" university</em></p>
+</form>
+
+<main>
+  {% if error %}
+    <div class="error">Error: {{ error }}</div>
+  {% endif %}
+
+  {% if query %}
+    {% if results %}
+      <p class="result-count">{{ results | length }} result{{ 's' if results | length != 1 }} for <strong>{{ query | e }}</strong></p>
+    {% else %}
+      <p class="no-results">No results found for <strong>{{ query | e }}</strong>.</p>
+    {% endif %}
+  {% endif %}
+
+  {% for doc in results %}
+  <div class="result-item">
+
+    <div class="result-header">
+      <span class="result-score">{{ doc.score }}</span>
+      <span class="result-title">
+        <a href="{{ doc.url }}" target="_blank" rel="noopener noreferrer">{{ doc.title }}</a>
+      </span>
+    </div>
+
+    <div class="result-url">
+      <a href="{{ doc.url }}" target="_blank" rel="noopener noreferrer">{{ doc.url }}</a>
+    </div>
+
+    <div class="result-meta">
+      {{ doc.last_modified }}, {{ doc.size }} bytes
+    </div>
+
+    <div class="result-keywords">
+      <span class="kw-label">Keywords:</span>
+      {% if doc.keywords %}
+        {% for kw in doc.keywords %}
+          <span class="kw-tag">{{ kw.word }} {{ kw.freq }}</span>
+        {% endfor %}
+      {% else %}
+        <span style="color:#aaa;font-style:italic;">none</span>
+      {% endif %}
+    </div>
+
+    <div class="result-links">
+      <div class="link-group">
+        <div class="link-group-label">Parent Links</div>
+        <ul>
+          {% if doc.parent_links %}
+            {% for link in doc.parent_links %}
+              <li><a href="{{ link }}" target="_blank" rel="noopener noreferrer" title="{{ link }}">{{ link }}</a></li>
+            {% endfor %}
+          {% else %}
+            <li class="none">none</li>
+          {% endif %}
+        </ul>
+      </div>
+      <div class="link-group">
+        <div class="link-group-label">Child Links</div>
+        <ul>
+          {% if doc.child_links %}
+            {% for link in doc.child_links %}
+              <li><a href="{{ link }}" target="_blank" rel="noopener noreferrer" title="{{ link }}">{{ link }}</a></li>
+            {% endfor %}
+          {% else %}
+            <li class="none">none</li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+
+  </div>
+  {% endfor %}
+</main>
+
+</body>
+</html>
