@@ -153,49 +153,42 @@ class SearchEngine:
             if has_all_phrases:
                 valid_docs.append(page_id)
                 
+        # Title terms are weighted TITLE_WEIGHT times more than body terms.
+        # This also fixes the case where a query term appears only in the title
+        # (which previously produced a zero body dot-product and thus a zero score).
+        TITLE_WEIGHT = 2.0
+
         # Compute Document Vectors and Cosine Similarity
         scores = []
         for page_id in valid_docs:
             doc_max_tf = self.get_document_max_tf(page_id)
-            
-            dot_product = 0.0
-            doc_vector_sq_sum = 0.0
-            
-            # Note: For exact cosine similarity, |D| should consider all terms in the document.
-            # To avoid huge overhead, we can approximate |D| or calculate it precisely.
-            # For this project, we calculate the magnitude only on query terms, or fetch all terms for the document.
-            # We'll calculate the true document length using all its terms to be accurate.
+
+            # Build body weights
             self.cursor.execute("SELECT word_id, freq FROM posting_body WHERE page_id = ?", (page_id,))
-            doc_terms = self.cursor.fetchall()
-            
             doc_weights = {}
-            for wid, freq in doc_terms:
+            for wid, freq in self.cursor.fetchall():
                 idf = self.get_idf(wid)
-                w = (freq / doc_max_tf) * idf
-                doc_weights[wid] = w
-                doc_vector_sq_sum += w * w
-                
-            for word_id, q_weight in query_vector.items():
-                d_weight = doc_weights.get(word_id, 0.0)
-                dot_product += q_weight * d_weight
-                
+                doc_weights[wid] = (freq / doc_max_tf) * idf
+
+            # Merge title weights (scaled by TITLE_WEIGHT) into the same vector
+            self.cursor.execute("SELECT word_id, freq FROM posting_title WHERE page_id = ?", (page_id,))
+            title_terms = self.cursor.fetchall()
+            if title_terms:
+                title_max_tf = max(freq for _, freq in title_terms)
+                for wid, freq in title_terms:
+                    idf = self.get_idf(wid)
+                    t_weight = (freq / title_max_tf) * idf * TITLE_WEIGHT
+                    doc_weights[wid] = doc_weights.get(wid, 0.0) + t_weight
+
+            doc_vector_sq_sum = sum(w * w for w in doc_weights.values())
+            dot_product = sum(query_vector.get(wid, 0.0) * w for wid, w in doc_weights.items())
             query_vector_sq_sum = sum(w * w for w in query_vector.values())
-            
+
             if doc_vector_sq_sum == 0 or query_vector_sq_sum == 0:
                 continue
-                
+
             similarity = dot_product / (math.sqrt(query_vector_sq_sum) * math.sqrt(doc_vector_sq_sum))
-            
-            # Title Boost
-            title_boost = 1.0
-            for word_id in query_vector.keys():
-                self.cursor.execute("SELECT 1 FROM posting_title WHERE word_id = ? AND page_id = ?", (word_id, page_id))
-                if self.cursor.fetchone():
-                    # Massive boost if the term appears in the title
-                    title_boost += 0.5 
-                    
-            final_score = similarity * title_boost
-            scores.append((final_score, page_id))
+            scores.append((similarity, page_id))
             
         # Sort by score descending
         scores.sort(key=lambda x: x[0], reverse=True)

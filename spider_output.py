@@ -42,6 +42,7 @@ def generate_spider_result():
                     FROM keyword_freq kf 
                     JOIN word w ON kf.word_id = w.word_id 
                     WHERE kf.page_id = ? 
+                    ORDER BY kf.freq DESC
                     LIMIT 10
                 """, (page_id,))
                 
@@ -72,6 +73,23 @@ def generate_spider_result():
                 # If no child links
                 if not child_links:
                     f.write("No child links\n")
+
+                # Get parent links
+                cursor.execute("""
+                    SELECT p.url 
+                    FROM link l 
+                    JOIN page p ON l.parent_id = p.page_id 
+                    WHERE l.child_id = ?
+                """, (page_id,))
+
+                parent_links = cursor.fetchall()
+
+                # Write parent links
+                for link in parent_links:
+                    f.write(f"{link[0]}\n")
+
+                if not parent_links:
+                    f.write("No parent links\n")
         
         print(f"Successfully generated spider_result.txt, processed {len(pages)} pages")
         
