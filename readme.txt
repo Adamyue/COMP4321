@@ -5,14 +5,18 @@ Spider & Test Program: Build and Execution Instructions
 
 FILES
 -----
-  crawler.py        Spider: BFS crawl, page fetch, link extraction, and indexing
-  indexer.py        Database layer: SQLite schema creation and all CRUD operations
-  stop_stem.py      Stop-word filtering and Porter stemming (via NLTK)
-  spider_output.py  Test program: reads spider.db and writes spider_result.txt
-  stopwords.txt     List of English stop words
-  requirements.txt  Python package dependencies
-  database_design.txt  Design document for the SQLite database schema
-  spider_result.txt    Output file produced by spider_output.py
+  crawler.py            Spider: BFS crawl, page fetch, link extraction, and indexing
+  indexer.py            Database layer: SQLite schema creation and all CRUD operations
+  stop_stem.py          Stop-word filtering and Porter stemming (via NLTK)
+  spider_output.py      Test program: reads spider.db and writes spider_result.txt
+  search_engine.py      Search engine: TF‑IDF ranking, phrase matching, result metadata
+  app.py                Flask application entry point
+  templates/index.html  HTML template for search engine web interface
+  static/style.css      CSS stylesheet for search engine web interface
+  stopwords.txt         List of English stop words
+  requirements.txt      Python package dependencies
+  database_design.txt   Design document for the SQLite database schema
+  spider_result.txt     Output file produced by spider_output.py
 
 REQUIREMENTS
 ------------
