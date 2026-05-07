@@ -276,7 +276,7 @@ This section summarizes behaviors that are directly supported by the implementat
 
 \subsection{Spider and Indexer Testing (Phase 1)}
 \begin{itemize}
-    \item \textbf{Test Case 1.1: BFS and Page Limit}: The crawler uses a queue-based BFS traversal and stops when \texttt{len(visited)} reaches \texttt{max	extunderscore pages}.
+    \item \textbf{Test Case 1.1: BFS and Page Limit}: The crawler uses a queue-based BFS traversal and stops when \texttt{len(visited)} reaches \texttt{max\_pages}.
     \item \textbf{Test Case 1.2: Stop Word \& Stemming}: The crawler tokenizes text with a regular expression, removes stop words using \texttt{StopStem}, and applies Porter stemming before indexing.
     \item \textbf{Test Case 1.3: Link Extraction}: The crawler extracts only \texttt{http} and \texttt{https} links, strips fragments, and inserts parent-child pairs into the link table.
     \item \textbf{Test Case 1.4: Re-crawling Robustness}: The crawler compares the current \texttt{Last-Modified} or \texttt{Date} value with the stored value and re-indexes a page only when the values differ.
