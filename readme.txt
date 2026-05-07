@@ -25,7 +25,7 @@ REQUIREMENTS
 
 STEP 1 – INSTALL DEPENDENCIES
 -------------------------------
-Run the following command from the project directory:
+Execute from the project directory:
 
     pip install -r requirements.txt
 
@@ -71,7 +71,46 @@ of crawler.py:
     )
 
 
-STEP 3 – RUN THE TEST PROGRAM
+STEP 3 – LAUNCH THE WEB INTERFACE
+-----------------------------------
+Execute from the project directory:
+
+    python app.py
+
+What it does:
+  1. Starts a local Flask web server at:
+         http://127.0.0.1:5000
+  2. Accepts user queries via a text box in the browser.
+  3. For each query:
+       - Tokenizes input, removes stop words, and applies Porter stemming.
+       - Supports free-text keywords and exact phrase search using double quotes,
+         e.g.: information "hong kong"
+       - Ranks matching pages using TF-IDF cosine similarity, with a title-match
+         boost applied to pages whose title contains a query term.
+  4. Displays up to 50 ranked results on a single page, each showing:
+       - Score, page title and URL (both hyperlinked to the live page)
+       - Last modification date and page size
+       - Up to 5 most frequent stemmed keywords with their frequencies
+       - Parent links and child links for the page
+
+spider.db must exist before launching (run crawler.py first if it does not).
+
+To stop the server, press Ctrl+C in the terminal.
+
+
+RE-RUNNING THE SPIDER
+----------------------
+The spider can be run multiple times safely:
+  - Pages whose Last-Modified header is unchanged are skipped (not re-indexed).
+  - Pages that have been updated are re-indexed from scratch (stale postings
+    are cleared before new ones are inserted).
+  - Cyclic links are handled via a visited set; each URL is processed at most
+    once per run.
+  - To start a completely fresh crawl, delete spider.db before running
+    crawler.py again.
+
+
+RUN THE TEST PROGRAM (PHASE 1)
 -------------------------------
 After the spider has finished (spider.db must exist), run:
 
@@ -98,15 +137,3 @@ Each entry in spider_result.txt has the format:
 
 On success the program prints:
   Successfully generated spider_result.txt, processed 30 pages
-
-
-RE-RUNNING THE SPIDER
-----------------------
-The spider can be run multiple times safely:
-  - Pages whose Last-Modified header is unchanged are skipped (not re-indexed).
-  - Pages that have been updated are re-indexed from scratch (stale postings
-    are cleared before new ones are inserted).
-  - Cyclic links are handled via a visited set; each URL is processed at most
-    once per run.
-  - To start a completely fresh crawl, delete spider.db before running
-    crawler.py again.
