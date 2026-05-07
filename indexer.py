@@ -50,7 +50,22 @@ class Indexer:
             CREATE INDEX IF NOT EXISTS idx_word_word ON word(word);
             CREATE INDEX IF NOT EXISTS idx_link_parent ON link(parent_id);
             CREATE INDEX IF NOT EXISTS idx_link_child ON link(child_id);
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            );
         ''')
+        self.conn.commit()
+
+    def get_setting(self, key):
+        self.cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
+        res = self.cursor.fetchone()
+        return res[0] if res else None
+
+    def set_setting(self, key, value):
+        self.cursor.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value)
+        )
         self.conn.commit()
 
     def get_page_id(self, url):

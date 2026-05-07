@@ -1,4 +1,6 @@
 import re
+import os
+import sqlite3
 from collections import deque
 from urllib.parse import urljoin, urlparse
 
@@ -13,8 +15,32 @@ class Crawler:
     def __init__(self, seed_url, max_pages=30, db_name="spider.db"):
         self.seed_url = seed_url
         self.max_pages = max_pages
+
+        # If the DB already exists but was built with a different seed URL,
+        # delete it so the new crawl starts from scratch.
+        if os.path.exists(db_name):
+            stored_seed = self._read_stored_seed(db_name)
+            if stored_seed is not None and stored_seed != seed_url:
+                print(f"Seed URL changed from '{stored_seed}' to '{seed_url}'.")
+                print("Deleting existing database and rebuilding from scratch.")
+                os.remove(db_name)
+
         self.indexer = Indexer(db_name)
+        self.indexer.set_setting("seed_url", seed_url)
         self.stop_stem = StopStem("stopwords.txt")
+
+    @staticmethod
+    def _read_stored_seed(db_name):
+        """Read the stored seed URL from an existing DB without a full Indexer init."""
+        try:
+            conn = sqlite3.connect(db_name)
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM settings WHERE key = 'seed_url'")
+            row = cursor.fetchone()
+            conn.close()
+            return row[0] if row else None
+        except Exception:
+            return None
 
     def fetch_page(self, url):
         try:
