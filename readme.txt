@@ -8,7 +8,7 @@ FILES
   crawler.py            Spider: BFS crawl, page fetch, link extraction, and indexing
   indexer.py            Database layer: SQLite schema creation and all CRUD operations
   stop_stem.py          Stop-word filtering and Porter stemming (via NLTK)
-  spider_output.py      Test program: reads spider.db and writes spider_result.txt
+  spider_output.py      Test program: generates spider_result.txt and Section 6 test reports
   search_engine.py      Search engine: TF‑IDF ranking, phrase matching, result metadata
   app.py                Flask application entry point
   templates/index.html  HTML template for search engine web interface
@@ -37,7 +37,7 @@ This installs:
   - requests      (HTTP fetching)
   - beautifulsoup4 (HTML parsing)
   - nltk          (Porter stemmer)
-  - pytest        (unit test runner)
+  - flask         (web interface framework)
 
 STEP 2 – RUN THE SPIDER
 ------------------------
@@ -48,7 +48,7 @@ Execute from the project directory:
 What it does:
   1. Starts a breadth-first crawl from the seed URL:
          https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm
-  2. Fetches up to 30 pages.
+  2. Fetches up to 300 pages.
   3. For each page:
        - Extracts and indexes title and body text (stop words removed, Porter stemmed).
        - Records parent/child link relationships.
@@ -56,15 +56,15 @@ What it does:
   4. Writes all indexed data to spider.db (SQLite, created in the same directory).
 
 Progress is printed to stdout, e.g.:
-  [1/30] Crawling: https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm
-  [2/30] Crawling: ...
+  [1/300] Crawling: https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm
+  [2/300] Crawling: ...
 
 To change the seed URL or page limit, edit the __main__ block at the bottom
 of crawler.py:
 
     crawler = Crawler(
         seed_url="https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm",
-        max_pages=30,
+        max_pages=300,
     )
 
 
@@ -107,8 +107,8 @@ The spider can be run multiple times safely:
     crawler.py again.
 
 
-RUN THE TEST PROGRAM (PHASE 1)
--------------------------------
+RUN THE TEST PROGRAM AND SECTION 6 TESTS
+----------------------------------------
 After the spider has finished (spider.db must exist), run:
 
     python spider_output.py
@@ -116,6 +116,8 @@ After the spider has finished (spider.db must exist), run:
 What it does:
   - Reads all indexed pages from spider.db.
   - Writes spider_result.txt in the same directory.
+  - Runs all Section 6 test cases from docs/document.tex.
+  - Writes detailed testing evidence to test_result.txt.
 
 Each entry in spider_result.txt has the format:
 
@@ -133,4 +135,30 @@ Each entry in spider_result.txt has the format:
   - Pages are separated by the dashed line shown above.
 
 On success the program prints:
-  Successfully generated spider_result.txt, processed 30 pages
+  Successfully generated spider_result.txt, processed <number> pages
+
+To list the available Section 6 test cases:
+
+    python spider_output.py --list
+
+To run all Section 6 tests without regenerating spider_result.txt:
+
+    python spider_output.py --all --skip-spider-result
+
+To run one specific test case for screenshot evidence:
+
+    python spider_output.py --test 1.2 --skip-spider-result
+
+You can replace 1.2 with any available test ID, such as 1.1, 1.3, 1.4,
+2.1, 2.2, 2.3, 2.4, or 2.5.
+
+To write the output of a specific test to a custom file:
+
+    python spider_output.py --test 1.2 --output test_result_1_2.txt
+
+The test output includes:
+  - PASS/FAIL status
+  - Test purpose
+  - Expected behavior
+  - Observed evidence, including database counts, sample rows, parsed queries,
+    ranked result samples, and web-interface response checks
