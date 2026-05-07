@@ -1,0 +1,136 @@
+COMP4321 Section 6 Test Report
+=================================
+
+Test Case 1.1: BFS and Page Limit
+--------------------------------
+Status  : PASS
+Purpose : Verify that the crawler produced a bounded BFS crawl stored in the page table.
+Expected: Fetched/indexed page count should be between 1 and 300, and every fetched page should have a URL.
+Observed Evidence:
+  - Indexed fetched pages: 297
+  - Fetched pages with URL: 297
+  - Configured max_pages: 300
+  - First five indexed pages by page_id:
+  - page_id=1, title=Test page, url=https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm
+  - page_id=2, title=CSE department of HKUST, url=https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse.htm
+  - page_id=3, title=News, url=https://www.cse.ust.hk/~kwtleung/COMP4321/news.htm
+  - page_id=4, title=books, url=https://www.cse.ust.hk/~kwtleung/COMP4321/books.htm
+  - page_id=5, title=Movie Index Page, url=https://www.cse.ust.hk/~kwtleung/COMP4321/Movie.htm
+
+Test Case 1.2: Stop Word & Stemming
+----------------------------------
+Status  : PASS
+Purpose : Verify stop-word lookup, Porter stemming, and normalized indexed terms.
+Expected: Common stop words should be recognized, representative words should stem correctly, and indexed terms should be lowercase alphabetic tokens.
+Observed Evidence:
+  - Stop-word lookup examples:
+  - and: True
+  - about: True
+  - the: True
+  - Porter stemming examples:
+  - running -> run (expected run)
+  - studies -> studi (expected studi)
+  - information -> inform (expected inform)
+  - Non-normalized indexed terms: 0
+  - Sample indexed terms: aa, aaahnold, aamir, aandersen, aangeraakt, aapk, aardman, aardwolf, aaron, aaronmichael
+
+Test Case 1.3: Link Extraction
+-----------------------------
+Status  : PASS
+Purpose : Verify extracted links are stored as parent-child pairs and normalized as HTTP(S) URLs without fragments.
+Expected: The link table should contain at least one link, and all child URLs should start with HTTP(S) and contain no fragment identifier.
+Observed Evidence:
+  - Total stored links: 587
+  - Valid HTTP(S), fragment-free links: 587
+  - Sample parent -> child links:
+  - https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse.htm
+  - https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/news.htm
+  - https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/books.htm
+  - https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/Movie.htm
+  - https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse/PG.htm
+
+Test Case 1.4: Re-crawling Robustness
+------------------------------------
+Status  : PASS
+Purpose : Verify that fetched pages store metadata used by the re-crawl check.
+Expected: Every fetched page should have title, last_modified/date, and size metadata.
+Observed Evidence:
+  - Pages with metadata: 297/297
+  - Stored seed URL: not stored in this DB
+  - Sample metadata rows:
+  - title=Test page, last_modified=Tue, 16 May 2023 05:03:16 GMT, size=603
+  - title=CSE department of HKUST, last_modified=Tue, 16 May 2023 05:03:16 GMT, size=392
+  - title=News, last_modified=Tue, 16 May 2023 05:03:16 GMT, size=384
+  - title=books, last_modified=Tue, 16 May 2023 05:03:16 GMT, size=601
+  - title=Movie Index Page, last_modified=Tue, 16 May 2023 05:09:22 GMT, size=19541
+
+Test Case 2.1: Basic Vector Space Query
+--------------------------------------
+Status  : PASS
+Purpose : Verify that a normal query is preprocessed, scored, and returned as ranked result objects.
+Expected: Search should return a list of result dictionaries with score, metadata, keywords, and link fields.
+Observed Evidence:
+  - Query: information retrieval
+  - Returned results: 30
+  - Top result samples:
+  - score=0.3611, title=book1, url=https://www.cse.ust.hk/~kwtleung/COMP4321/books/book1.htm
+  - score=0.2135, title=books, url=https://www.cse.ust.hk/~kwtleung/COMP4321/books.htm
+  - score=0.1635, title=book2, url=https://www.cse.ust.hk/~kwtleung/COMP4321/books/book2.htm
+  - All result objects contain expected fields: True
+
+Test Case 2.2: Title Weight Verification
+---------------------------------------
+Status  : PASS
+Purpose : Verify that title postings exist separately from body postings for title weighting.
+Expected: Both posting_title and posting_body should contain rows; title terms are later weighted by TITLE_WEIGHT in search_engine.py.
+Observed Evidence:
+  - posting_title rows: 705
+  - posting_body rows: 70515
+  - Sample title posting rows:
+  - word=test, title=Test page, title_freq=1
+  - word=page, title=Test page, title_freq=1
+  - word=cse, title=CSE department of HKUST, title_freq=1
+  - word=depart, title=CSE department of HKUST, title_freq=1
+  - word=hkust, title=CSE department of HKUST, title_freq=1
+  - Ranking implementation uses TITLE_WEIGHT = 2.0 in search_engine.py.
+
+Test Case 2.3: Exact Phrase Search
+---------------------------------
+Status  : PASS
+Purpose : Verify that quoted phrases are parsed and filtered through positional indexes.
+Expected: The query should parse "hong kong" as one phrase, and returned results should respect the 50-result limit.
+Observed Evidence:
+  - Query: information "hong kong"
+  - Parsed free terms: ['inform']
+  - Parsed phrases: [['hong', 'kong']]
+  - Returned results: 38
+  - Top phrase-result samples:
+  - score=0.0837, title=Sex and the Beauties (2003), url=https://www.cse.ust.hk/~kwtleung/COMP4321/Movie/59.html
+  - score=0.0507, title=UG, url=https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse/UG.htm
+  - score=0.0479, title=Taking Lives (2004), url=https://www.cse.ust.hk/~kwtleung/COMP4321/Movie/197.html
+
+Test Case 2.4: Web Interface Formatting
+--------------------------------------
+Status  : PASS
+Purpose : Verify that Flask accepts a query and renders the expected result-page fields.
+Expected: The response should be HTTP 200 and include CSS/template fragments for score, title, URL, keywords, parent links, and child links.
+Observed Evidence:
+  - POST / query: information "hong kong"
+  - HTTP status code: 200
+  - Expected template fragments: COMP4321 Search Engine, result-score, result-title, result-url, result-keywords, Parent Links, Child Links
+  - Missing fragments: none
+  - HTML response length: 73127 characters
+
+Test Case 2.5: Max Results
+-------------------------
+Status  : PASS
+Purpose : Verify that the search engine returns no more than 50 ranked documents.
+Expected: The result list length should be less than or equal to 50.
+Observed Evidence:
+  - Query: movie
+  - Returned results: 50
+  - Limit respected: True
+
+Summary: 9/9 tests passed.
+
+Note: This program also generates spider_result.txt for the Phase 1 output format.
