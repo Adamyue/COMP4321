@@ -35,13 +35,6 @@ This installs:
   - nltk          (Porter stemmer)
   - pytest        (unit test runner)
 
-One-time NLTK data download (required for the Porter stemmer):
-
-    python -c "import nltk; nltk.download('punkt')"
-
-No compilation or build step is needed; Python scripts run directly.
-
-
 STEP 2 – RUN THE SPIDER
 ------------------------
 Execute from the project directory:
