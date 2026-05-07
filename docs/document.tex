@@ -12,6 +12,7 @@
 \usepackage{xcolor}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
+\usepackage{float}
 
 \geometry{margin=1in}
 \onehalfspacing
@@ -278,8 +279,55 @@ This section summarizes behaviors that are directly supported by the implementat
 \begin{itemize}
     \item \textbf{Test Case 1.1: BFS and Page Limit}: The crawler uses a queue-based BFS traversal and stops when \texttt{len(visited)} reaches \texttt{max\_pages}.
     \item \textbf{Test Case 1.2: Stop Word \& Stemming}: The crawler tokenizes text with a regular expression, removes stop words using \texttt{StopStem}, and applies Porter stemming before indexing.
+\begin{lstlisting}[language=Python, caption=Test Case 1.2 Stop Word and Stemming Test Program]
+def test_stop_word_and_stemming(cursor):
+    stop_stem = StopStem("stopwords.txt")
+    stem_examples = {
+        "running": "run",
+        "studies": "studi",
+        "information": "inform",
+    }
+    stemming_ok = all(stop_stem.stem(word) == expected for word, expected in stem_examples.items())
+    stop_word_examples = ["and", "about", "the"]
+    stop_word_results = {word: stop_stem.is_stop_word(word) for word in stop_word_examples}
+    stop_words_ok = all(stop_word_results.values())
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM word
+        WHERE word GLOB '*[^a-z]*' OR word != LOWER(word)
+    """)
+    non_normalized_terms = cursor.fetchone()[0]
+    cursor.execute("SELECT word FROM word ORDER BY word LIMIT 10")
+    sample_terms = [row[0] for row in cursor.fetchall()]
+
+    return make_result(
+        "1.2",
+        "Stop Word & Stemming",
+        stop_words_ok and stemming_ok and non_normalized_terms == 0,
+        "Verify stop-word lookup, Porter stemming, and normalized indexed terms.",
+        "Common stop words should be recognized, representative words should stem correctly, and indexed terms should be lowercase alphabetic tokens.",
+        [
+            "Stop-word lookup examples:",
+            *[f"{word}: {value}" for word, value in stop_word_results.items()],
+            "Porter stemming examples:",
+            *[
+                f"{word} -> {stop_stem.stem(word)} (expected {expected})"
+                for word, expected in stem_examples.items()
+            ],
+            f"Non-normalized indexed terms: {non_normalized_terms}",
+            f"Sample indexed terms: {', '.join(sample_terms)}",
+        ],
+    )
+\end{lstlisting}
+
+\begin{center}
+    \includegraphics[width=0.90\linewidth]{../screenshots/test_1_2.png}
+
+    \textbf{Figure:} Test Case 1.2 terminal output showing stop-word lookup, Porter stemming examples, and normalized indexed terms.
+\end{center}
+
     \item \textbf{Test Case 1.3: Link Extraction}: The crawler extracts only \texttt{http} and \texttt{https} links, strips fragments, and inserts parent-child pairs into the link table.
-    \item \textbf{Test Case 1.4: Re-crawling Robustness}: The crawler compares the current \texttt{Last-Modified} or \texttt{Date} value with the stored value and re-indexes a page only when the values differ.
+    \item \textbf{Test Case 1.4: Re-crawling Robustness}: The crawler compares the current HTTP modification/date value with the stored value and re-indexes a page only when the values differ.
 \end{itemize}
 
 \subsection{Search Engine and Web Interface Testing}
@@ -288,6 +336,12 @@ This section summarizes behaviors that are directly supported by the implementat
     \item \textbf{Test Case 2.2: Title Weight Verification}: The search engine reads from both \texttt{posting\textunderscore body} and \texttt{posting\textunderscore title}, then scales title frequencies by \texttt{TITLE\textunderscore WEIGHT} before cosine similarity is computed.
     \item \textbf{Test Case 2.3: Exact Phrase Search}: For quoted phrases, the search engine checks positional lists in both body and title postings and only keeps documents where each term appears consecutively.
     \item \textbf{Test Case 2.4: Web Interface Formatting}: The Flask app passes \texttt{results}, \texttt{query}, and \texttt{error} to \texttt{index.html}; the template renders score, title, URL, last modified date, size, keywords, parent links, and child links when present.
+\begin{center}
+    \includegraphics[width=0.90\linewidth]{../screenshots/web_interface.png}
+
+    \textbf{Figure:} Web interface test showing a query submitted through Flask and ranked results rendered with scores, titles, URLs, keywords, parent links, and child links.
+\end{center}
+
     \item \textbf{Test Case 2.5: Max Results}: The search engine truncates the ranked result list to the first 50 documents.
 \end{itemize}
 
