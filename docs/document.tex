@@ -1,0 +1,336 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---- Package Imports ----
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+\geometry{margin=1in}
+\onehalfspacing
+
+% ---- Code Listing Style ----
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% ---- Header/Footer ----
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{COMP4321 Web Search Engine Project Report}
+\rhead{\thepage}
+\cfoot{}
+
+% ---- Title Page ----
+\title{\textbf{COMP4321 Web Search Engine Project Report}}
+\author{
+    YUE Pu \texttt{(pyue@connect.ust.hk)} \\
+    \and
+    Gyungbin JO \texttt{(gjoaa@connect.ust.hk)} \\
+    \and
+    LI Linfeng \texttt{(lliel@connect.ust.hk)} \\
+}
+\date{May 9, 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% ---- Table of Contents ----
+\tableofcontents
+\newpage
+
+% =============================================
+% SECTION 1: OVERALL DESIGN
+% =============================================
+\section{Overall Design of the System}
+Our web search engine is designed with a modular architecture consisting of three primary components: the Spider (Crawler), the Indexer, and the Search Engine with its Web Interface. The system is implemented in Python 3.8+ and uses SQLite as the persistent storage layer via the \texttt{sqlite3} module. The high-level data flow is: crawler fetches pages, indexer stores metadata and postings, and the Flask web app queries the search engine for ranked results.
+
+\subsection{Component Interaction}
+\begin{enumerate}
+    \item \textbf{Spider (crawler.py)}: Fetches web pages recursively using a breadth-first search strategy. For each fetched page, it extracts hyperlinks for further crawling and passes the page content to the indexer.
+    \item \textbf{Indexer (indexer.py, stop\_stem.py)}: Processes raw HTML content, removes stop words, applies Porter stemming through the NLTK stemmer, and updates the SQLite database with page metadata, word mappings, link relations, and postings.
+    \item \textbf{Search Engine (search\_engine.py)}: Implements a TF-IDF-based vector space ranking model with cosine similarity. It supports free-text queries and exact quoted phrases by consulting positional postings stored in SQLite.
+    \item \textbf{Web Interface (app.py, templates/)}: A lightweight Flask application that accepts user queries, passes them to the search engine, and renders ranked results in an HTML page.
+\end{enumerate}
+
+% =============================================
+% SECTION 2: FILE STRUCTURES (DATABASE DESIGN)
+% =============================================
+\section{File Structures Used in the Index Database}
+We use SQLite (single file: \texttt{spider.db}) as our database backend. The schema is kept simple and matches the implementation in \texttt{indexer.py}. The database design document is available in \texttt{database\_design.txt}. At a high level, the key tables are:
+
+\subsection{Page Table (\texttt{page})}
+Stores metadata for each crawled and indexed URL.
+\begin{itemize}
+    \item \texttt{page\_id INTEGER PRIMARY KEY AUTOINCREMENT}: Unique internal ID.
+    \item \texttt{url TEXT UNIQUE NOT NULL}: Full URL of the page.
+    \item \texttt{title TEXT}: Extracted page title, populated after fetching.
+    \item \texttt{last\_modified TEXT}: Last-Modified header value, or Date header if missing.
+    \item \texttt{size INTEGER}: Page size in bytes.
+\end{itemize}
+
+\subsection{Word Table (\texttt{word})}
+Stores unique stemmed words (tokens).
+\begin{itemize}
+    \item \texttt{word\_id INTEGER PRIMARY KEY AUTOINCREMENT}: Unique ID for the stemmed word.
+    \item \texttt{word TEXT UNIQUE NOT NULL}: The stem itself.
+\end{itemize}
+
+\subsection{Inverted Index Tables}
+Two separate tables are created to differentiate between body text and title text, as required.
+\begin{itemize}
+    \item \texttt{posting\_body (word\_id, page\_id, freq, positions)}: Maps a stemmed word to a page where it appears in the body.
+    \item \texttt{posting\_title (word\_id, page\_id, freq, positions)}: Maps a stemmed word to a page where it appears in the title.
+\end{itemize}
+Each entry stores the term frequency (\texttt{freq}) and a JSON-encoded list of positions (\texttt{positions}) to support phrase search.
+
+\subsection{Linkage Table (\texttt{link})}
+Stores parent-child relationships between pages to support navigational display.
+\begin{itemize}
+    \item \texttt{parent\_id INTEGER}: Page ID of the parent page.
+    \item \texttt{child\_id INTEGER}: Page ID of the child page.
+    \item \texttt{PRIMARY KEY (parent\_id, child\_id)}.
+\end{itemize}
+
+\subsection{Keyword Frequency Table (\texttt{keyword\_freq})}
+Stores body-term frequencies for each page so that the web interface and output script can display the most frequent keywords without rescanning postings.
+\begin{itemize}
+    \item \texttt{page\_id INTEGER}: Page ID.
+    \item \texttt{word\_id INTEGER}: Word ID.
+    \item \texttt{freq INTEGER}: Body frequency of the word in that page.
+    \item \texttt{PRIMARY KEY (page\_id, word\_id)}.
+\end{itemize}
+
+% =============================================
+% SECTION 3: ALGORITHMS
+% =============================================
+\section{Algorithms Used}
+
+\subsection{Breadth-First Search (BFS) Crawling}
+The spider uses a BFS queue and a visited set. It fetches each page, skips failures, re-indexes only when the last-modified value changes, records links, and commits each crawl batch.
+\begin{lstlisting}[language=Python, caption=BFS Crawling Core Logic]
+def crawl(self):
+    visited = set()
+    queue = deque([self.seed_url])
+
+    while queue and len(visited) < self.max_pages:
+        url = queue.popleft()
+        if url in visited:
+            continue
+        visited.add(url)
+
+        print(f"[{len(visited)}/{self.max_pages}] Crawling: {url}")
+        page_id = self.indexer.get_page_id(url)
+
+        response, soup = self.fetch_page(url)
+        if soup is None:
+            continue
+
+        last_modified = self.get_last_modified(response)
+
+        if self.should_recrawl(page_id, last_modified):
+            title = soup.title.string.strip() if soup.title and soup.title.string else url
+            body_text = soup.get_text(separator=" ")
+            size = len(response.content)
+
+            self.indexer.clear_page_index(page_id)
+            self.indexer.add_page_info(page_id, title, last_modified, size)
+            self.index_text(page_id, title, is_title=True)
+            self.index_text(page_id, body_text, is_title=False)
+
+        child_links = self.extract_links(soup, url)
+        for child_url in child_links:
+            child_id = self.indexer.get_page_id(child_url)
+            self.indexer.add_link(page_id, child_id)
+            if child_url not in visited:
+                queue.append(child_url)
+
+        self.indexer.commit()
+
+    self.indexer.remove_pages_not_in(visited)
+    self.indexer.clean_stubs()
+\end{lstlisting}
+
+\subsection{The Vector Space Model and TF-IDF}
+We implement a vector space model where both documents and queries are represented as weighted term vectors.
+\begin{itemize}
+    \item \textbf{Term Frequency (TF)}: 
+    \begin{equation}
+        tf(t,d) = \frac{f_{t,d}}{\max_{\tau \in d} f_{\tau,d}}
+    \end{equation}
+    where $f_{t,d}$ is the frequency of term $t$ in document $d$.
+    
+    \item \textbf{Inverse Document Frequency (IDF)}:
+    \begin{equation}
+        idf(t) = \log_2\left(\frac{N}{df_t}\right)
+    \end{equation}
+    where $N$ is the total number of documents and $df_t$ is the number of documents containing term $t$.
+    
+    \item \textbf{TF-IDF Weight}:
+    \begin{equation}
+        w_{t,d} = tf(t,d) \times idf(t)
+    \end{equation}
+\end{itemize}
+
+\subsection{Cosine Similarity}
+Document and query similarity is computed using the cosine of the angle between their weighted vectors.
+\begin{equation}
+    \text{cosine\_sim}(Q, D) = \frac{\sum_{t \in Q} w_{t,Q} \cdot w_{t,D}}{\sqrt{\sum_{t \in Q} w_{t,Q}^2} \cdot \sqrt{\sum_{t \in D} w_{t,D}^2}}
+\end{equation}
+
+\subsection{Favoring Title Matches}
+The search engine merges title postings into the document vector with an extra weight multiplier. In the implementation, title terms are weighted by a factor of 2.0 before cosine similarity is computed. This is handled directly in \texttt{search\_engine.py}.
+
+\subsection{Phrase Search Handling}
+To support exact phrase queries (e.g., \texttt{"hong kong"}), we:
+\begin{enumerate}
+    \item Split the phrase into individual stemmed terms.
+    \item Retrieve the posting lists with positions for each term from the relevant posting table.
+    \item Perform a positional check to confirm that the terms appear consecutively in the same document.
+    \item Return only documents where the consecutive condition holds.
+\end{enumerate}
+
+\subsection{Link Structure and Cyclic Handling}
+The crawler maintains a \texttt{visited} set while crawling and stores each extracted hyperlink as a parent-child record in the \texttt{link} table. The search engine and output script read this table to retrieve parent and child links.
+
+% =============================================
+% SECTION 4: INSTALLATION PROCEDURE
+% =============================================
+\section{Installation Procedure}
+
+\subsection{Prerequisites}
+\begin{itemize}
+    \item Python 3.8 or higher
+    \item pip (Python package installer)
+    \item Internet access for initial crawling
+\end{itemize}
+
+\subsection{Setup and Execution}
+The project can be set up and run by following the instructions in \texttt{readme.txt}:
+
+\begin{lstlisting}[language=bash, caption=Installation and Execution Commands]
+# 1. Clone the repository
+git clone <repository-url>
+cd COMP4321
+
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Run the spider to index pages
+python crawler.py
+
+# 4. Start the web interface
+python app.py
+#    Access the search engine at http://127.0.0.1:5000/
+\end{lstlisting}
+\textbf{Note:} No extra NLTK data download is required for the current implementation because the project uses Porter stemming only. A simple \texttt{Makefile} was not created as the project is purely Python-based and does not require a compilation step.
+
+% =============================================
+% SECTION 5: HIGHLIGHTS & FEATURES
+% =============================================
+\section{Highlights of Features Beyond the Required Specification}
+Our team implemented several enhancements to improve robustness, user experience, and search quality:
+\begin{itemize}
+    \item \textbf{Re-crawling Check}: The spider compares the \texttt{Last-Modified} header before re-indexing a known URL. If the page has not changed, it is skipped.
+    \item \textbf{Phrase Search}: Exact phrase search is supported using positional postings.
+    \item \textbf{Flask Web Interface}: The search UI is implemented with Flask and Jinja2 templates.
+    \item \textbf{Keyword Display}: Search results show the most frequent body keywords for each page.
+    \item \textbf{Parent and Child Link Display}: Both parent and child links are retrieved and displayed for each search result, providing a full navigational context as required.
+\end{itemize}
+
+% =============================================
+% SECTION 6: TESTING
+% =============================================
+\section{Testing of Functions Implemented}
+This section summarizes behaviors that are directly supported by the implementation.
+
+\subsection{Spider and Indexer Testing (Phase 1)}
+\begin{itemize}
+    \item \textbf{Test Case 1.1: BFS and Page Limit}: The crawler uses a queue-based BFS traversal and stops when \texttt{len(visited)} reaches \texttt{max	extunderscore pages}.
+    \item \textbf{Test Case 1.2: Stop Word \& Stemming}: The crawler tokenizes text with a regular expression, removes stop words using \texttt{StopStem}, and applies Porter stemming before indexing.
+    \item \textbf{Test Case 1.3: Link Extraction}: The crawler extracts only \texttt{http} and \texttt{https} links, strips fragments, and inserts parent-child pairs into the link table.
+    \item \textbf{Test Case 1.4: Re-crawling Robustness}: The crawler compares the current \texttt{Last-Modified} or \texttt{Date} value with the stored value and re-indexes a page only when the values differ.
+\end{itemize}
+
+\subsection{Search Engine and Web Interface Testing}
+\begin{itemize}
+    \item \textbf{Test Case 2.1: Basic Vector Space Query}: The search engine tokenizes a query, removes stop words, stems the remaining tokens, and computes query weights from the stored document statistics.
+    \item \textbf{Test Case 2.2: Title Weight Verification}: The search engine reads from both \texttt{posting\textunderscore body} and \texttt{posting\textunderscore title}, then scales title frequencies by \texttt{TITLE\textunderscore WEIGHT} before cosine similarity is computed.
+    \item \textbf{Test Case 2.3: Exact Phrase Search}: For quoted phrases, the search engine checks positional lists in both body and title postings and only keeps documents where each term appears consecutively.
+    \item \textbf{Test Case 2.4: Web Interface Formatting}: The Flask app passes \texttt{results}, \texttt{query}, and \texttt{error} to \texttt{index.html}; the template renders score, title, URL, last modified date, size, keywords, parent links, and child links when present.
+    \item \textbf{Test Case 2.5: Max Results}: The search engine truncates the ranked result list to the first 50 documents.
+\end{itemize}
+
+% =============================================
+% SECTION 7: CONCLUSION
+% =============================================
+\section{Conclusion}
+
+\subsection{Strengths of the System}
+\begin{itemize}
+    \item \textbf{Simplicity and Portability}: Using Python and SQLite means the entire engine is self-contained in a single directory with no external database server to configure. Running it requires only Python and a few pip-installed libraries.
+    \item \textbf{Correctness}: The system implements BFS crawling, stop-word removal, stemming, phrase search, title weighting, and re-crawl checks.
+    \item \textbf{Extensibility}: The modular design (crawler, indexer, search engine as separate modules) makes it easy to extend or replace parts. The SQLite schema is normalized, allowing for complex queries.
+\end{itemize}
+
+\subsection{Weaknesses and Limitations}
+\begin{itemize}
+    \item \textbf{Scalability}: SQLite is a lightweight database and not designed for high-concurrency or internet-scale data. Performance would degrade with millions of pages. A production system would require a distributed index (e.g., Elasticsearch or Apache Lucene) and a dedicated database server (e.g., PostgreSQL).
+    \item \textbf{Crawling Speed}: The single-threaded BFS crawler is slow and network-bound. Parallel fetching using asynchronous libraries (\texttt{aiohttp}) or a thread pool would be necessary for large-scale crawling.
+    \item \textbf{Ranking Algorithm}: Our ranking relies purely on TF-IDF and a simple title boost. We did not implement advanced features like PageRank or BM25, which would significantly improve result relevance.
+\end{itemize}
+
+\subsection{Potential Improvements and Interesting Features}
+If we were to re-implement the system or extend it, we would consider:
+\begin{itemize}
+    \item \textbf{PageRank or BM25}: Incorporate a stronger ranking model to improve relevance.
+    \item \textbf{Relevance Feedback}: Implement a similar-pages feature using the top keywords from a chosen result.
+    \item \textbf{Better Query Handling}: Add query expansion and spelling suggestions.
+    \item \textbf{User Experience}: Develop a more interactive UI with query history and richer filters.
+\end{itemize}
+
+\subsection{Lessons Learned}
+The most significant architectural decision was the choice of SQLite. While it served us well for rapid development and met the project requirements, it also makes clear the tradeoff between simplicity and scalability. Building a search engine from scratch also highlighted the importance of preprocessing, inverted index design, and careful handling of link structure and ranking.
+
+% =============================================
+% SECTION 8: CONTRIBUTIONS
+% =============================================
+\section{Contribution}
+The project contributions were relatively balanced, with the following main areas of responsibility:
+\begin{itemize}
+    \item \textbf{YUE Pu}: Retrieval function and search-related logic.
+    \item \textbf{Gyungbin JO}: Spider and web interface.
+    \item \textbf{LI Linfeng}: Test program and document writing.
+\end{itemize}
+
+\end{document}

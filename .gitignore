@@ -4,3 +4,11 @@ spider.db
 test_crawler.py
 testcase.py
 spider_result.txt
+
+# LaTeX intermediate files
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
