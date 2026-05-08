@@ -103,8 +103,7 @@ class Crawler:
             if url in visited:
                 continue
             visited.add(url)
-
-            print(f"[{len(visited)}/{self.max_pages}] Crawling: {url}")
+            
             page_id = self.indexer.get_page_id(url)
 
             response, soup = self.fetch_page(url)
@@ -114,6 +113,7 @@ class Crawler:
             last_modified = self.get_last_modified(response)
 
             if self.should_recrawl(page_id, last_modified):
+                print(f"[{len(visited)}/{self.max_pages}] Crawling: {url}")
                 title = (
                     soup.title.string.strip()
                     if soup.title and soup.title.string
@@ -127,6 +127,7 @@ class Crawler:
                 self.indexer.add_page_info(page_id, title, last_modified, size)
                 self.index_text(page_id, title, is_title=True)
                 self.index_text(page_id, body_text, is_title=False)
+            else: print(f"[{len(visited)}/{self.max_pages}] Skipping: {url}")
 
             child_links = self.extract_links(soup, url)
             for child_url in child_links:
