@@ -7,15 +7,15 @@ Status  : PASS
 Purpose : Verify that the crawler produced a bounded BFS crawl stored in the page table.
 Expected: Fetched/indexed page count should be between 1 and 300, and every fetched page should have a URL.
 Observed Evidence:
-  - Indexed fetched pages: 297
-  - Fetched pages with URL: 297
+  - Indexed fetched pages: 300
+  - Fetched pages with URL: 300
   - Configured max_pages: 300
   - First five indexed pages by page_id:
-  - page_id=1, title=Test page, url=https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm
-  - page_id=2, title=CSE department of HKUST, url=https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse.htm
-  - page_id=3, title=News, url=https://www.cse.ust.hk/~kwtleung/COMP4321/news.htm
-  - page_id=4, title=books, url=https://www.cse.ust.hk/~kwtleung/COMP4321/books.htm
-  - page_id=5, title=Movie Index Page, url=https://www.cse.ust.hk/~kwtleung/COMP4321/Movie.htm
+  - page_id=1, title=Test page, url=https://hitcslj.github.io/TestPages/testpage.htm
+  - page_id=2, title=CSE department of HKUST, url=https://hitcslj.github.io/TestPages/ust_cse.htm
+  - page_id=3, title=News, url=https://hitcslj.github.io/TestPages/news.htm
+  - page_id=4, title=books, url=https://hitcslj.github.io/TestPages/books.htm
+  - page_id=5, title=Movie Index Page, url=https://hitcslj.github.io/TestPages/Movie.htm
 
 Test Case 1.2: Stop Word & Stemming
 ----------------------------------
@@ -40,14 +40,14 @@ Status  : PASS
 Purpose : Verify extracted links are stored as parent-child pairs and normalized as HTTP(S) URLs without fragments.
 Expected: The link table should contain at least one link, and all child URLs should start with HTTP(S) and contain no fragment identifier.
 Observed Evidence:
-  - Total stored links: 587
-  - Valid HTTP(S), fragment-free links: 587
+  - Total stored links: 598
+  - Valid HTTP(S), fragment-free links: 598
   - Sample parent -> child links:
-  - https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse.htm
-  - https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/news.htm
-  - https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/books.htm
-  - https://www.cse.ust.hk/~kwtleung/COMP4321/testpage.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/Movie.htm
-  - https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse.htm -> https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse/PG.htm
+  - https://hitcslj.github.io/TestPages/testpage.htm -> https://hitcslj.github.io/TestPages/ust_cse.htm
+  - https://hitcslj.github.io/TestPages/testpage.htm -> https://hitcslj.github.io/TestPages/news.htm
+  - https://hitcslj.github.io/TestPages/testpage.htm -> https://hitcslj.github.io/TestPages/books.htm
+  - https://hitcslj.github.io/TestPages/testpage.htm -> https://hitcslj.github.io/TestPages/Movie.htm
+  - https://hitcslj.github.io/TestPages/ust_cse.htm -> https://hitcslj.github.io/TestPages/ust_cse/PG.htm
 
 Test Case 1.4: Re-crawling Robustness
 ------------------------------------
@@ -55,14 +55,14 @@ Status  : PASS
 Purpose : Verify that fetched pages store metadata used by the re-crawl check.
 Expected: Every fetched page should have title, last_modified/date, and size metadata.
 Observed Evidence:
-  - Pages with metadata: 297/297
-  - Stored seed URL: not stored in this DB
+  - Pages with metadata: 300/300
+  - Stored seed URL: https://hitcslj.github.io/TestPages/testpage.htm
   - Sample metadata rows:
-  - title=Test page, last_modified=Tue, 16 May 2023 05:03:16 GMT, size=603
-  - title=CSE department of HKUST, last_modified=Tue, 16 May 2023 05:03:16 GMT, size=392
-  - title=News, last_modified=Tue, 16 May 2023 05:03:16 GMT, size=384
-  - title=books, last_modified=Tue, 16 May 2023 05:03:16 GMT, size=601
-  - title=Movie Index Page, last_modified=Tue, 16 May 2023 05:09:22 GMT, size=19541
+  - title=Test page, last_modified=Wed, 25 Mar 2026 05:03:26 GMT, size=627
+  - title=CSE department of HKUST, last_modified=Wed, 25 Mar 2026 05:03:26 GMT, size=412
+  - title=News, last_modified=Wed, 25 Mar 2026 05:03:26 GMT, size=403
+  - title=books, last_modified=Wed, 25 Mar 2026 05:03:26 GMT, size=624
+  - title=Movie Index Page, last_modified=Wed, 25 Mar 2026 05:03:26 GMT, size=19541
 
 Test Case 2.1: Basic Vector Space Query
 --------------------------------------
@@ -73,9 +73,9 @@ Observed Evidence:
   - Query: information retrieval
   - Returned results: 30
   - Top result samples:
-  - score=0.3611, title=book1, url=https://www.cse.ust.hk/~kwtleung/COMP4321/books/book1.htm
-  - score=0.2135, title=books, url=https://www.cse.ust.hk/~kwtleung/COMP4321/books.htm
-  - score=0.1635, title=book2, url=https://www.cse.ust.hk/~kwtleung/COMP4321/books/book2.htm
+  - score=0.361, title=book1, url=https://hitcslj.github.io/TestPages/books/book1.htm
+  - score=0.2117, title=books, url=https://hitcslj.github.io/TestPages/books.htm
+  - score=0.1569, title=book2, url=https://hitcslj.github.io/TestPages/books/book2.htm
   - All result objects contain expected fields: True
 
 Test Case 2.2: Title Weight Verification
@@ -84,8 +84,8 @@ Status  : PASS
 Purpose : Verify that title postings exist separately from body postings for title weighting.
 Expected: Both posting_title and posting_body should contain rows; title terms are later weighted by TITLE_WEIGHT in search_engine.py.
 Observed Evidence:
-  - posting_title rows: 705
-  - posting_body rows: 70515
+  - posting_title rows: 716
+  - posting_body rows: 71269
   - Sample title posting rows:
   - word=test, title=Test page, title_freq=1
   - word=page, title=Test page, title_freq=1
@@ -105,9 +105,9 @@ Observed Evidence:
   - Parsed phrases: [['hong', 'kong']]
   - Returned results: 38
   - Top phrase-result samples:
-  - score=0.0837, title=Sex and the Beauties (2003), url=https://www.cse.ust.hk/~kwtleung/COMP4321/Movie/59.html
-  - score=0.0507, title=UG, url=https://www.cse.ust.hk/~kwtleung/COMP4321/ust_cse/UG.htm
-  - score=0.0479, title=Taking Lives (2004), url=https://www.cse.ust.hk/~kwtleung/COMP4321/Movie/197.html
+  - score=0.0845, title=Sex and the Beauties (2003), url=https://hitcslj.github.io/TestPages/Movie/59.html
+  - score=0.0508, title=UG, url=https://hitcslj.github.io/TestPages/ust_cse/UG.htm
+  - score=0.0476, title=Taking Lives (2004), url=https://hitcslj.github.io/TestPages/Movie/197.html
 
 Test Case 2.4: Web Interface Formatting
 --------------------------------------
@@ -119,7 +119,7 @@ Observed Evidence:
   - HTTP status code: 200
   - Expected template fragments: COMP4321 Search Engine, result-score, result-title, result-url, result-keywords, Parent Links, Child Links
   - Missing fragments: none
-  - HTML response length: 73127 characters
+  - HTML response length: 71075 characters
 
 Test Case 2.5: Max Results
 -------------------------
