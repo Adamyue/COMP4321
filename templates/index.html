@@ -23,6 +23,10 @@
     >
     <button type="submit">Search</button>
   </div>
+  <label style="display:inline-flex;align-items:center;gap:0.4rem;margin-top:0.75rem;cursor:pointer;">
+    <input type="checkbox" name="title_boost" {% if title_boost %}checked{% endif %}>
+    Enable title boost
+  </label>
   <p class="hint">Tip: wrap phrases in double quotes, e.g. <em>"hong kong" university</em></p>
 </form>
 
