@@ -33,6 +33,103 @@ class SearchEngine:
                 
         return free_terms, stemmed_phrases
 
+    def explain_query(self, query):
+        """Return a compact explanation of how a web query is handled."""
+        raw_tokens = re.findall(r"[a-zA-Z]+", query.lower())
+        token_details = []
+        for token in raw_tokens:
+            is_stop_word = self.stop_stem.is_stop_word(token)
+            stem = None if is_stop_word else self.stop_stem.stem(token)
+            word_id = None
+            body_docs = 0
+            title_docs = 0
+
+            if stem:
+                self.cursor.execute("SELECT word_id FROM word WHERE word = ?", (stem,))
+                row = self.cursor.fetchone()
+                if row:
+                    word_id = row[0]
+                    self.cursor.execute(
+                        "SELECT COUNT(*) FROM posting_body WHERE word_id = ?",
+                        (word_id,),
+                    )
+                    body_docs = self.cursor.fetchone()[0]
+                    self.cursor.execute(
+                        "SELECT COUNT(*) FROM posting_title WHERE word_id = ?",
+                        (word_id,),
+                    )
+                    title_docs = self.cursor.fetchone()[0]
+
+            token_details.append({
+                "token": token,
+                "stop_word": is_stop_word,
+                "stem": stem,
+                "word_id": word_id,
+                "body_docs": body_docs,
+                "title_docs": title_docs,
+            })
+
+        free_terms, phrases = self.parse_query(query)
+        all_query_tokens = list(free_terms)
+        for phrase in phrases:
+            all_query_tokens.extend(phrase)
+
+        candidate_docs = set()
+        for token in set(all_query_tokens):
+            self.cursor.execute("SELECT word_id FROM word WHERE word = ?", (token,))
+            row = self.cursor.fetchone()
+            if not row:
+                continue
+            word_id = row[0]
+            self.cursor.execute("SELECT page_id FROM posting_body WHERE word_id = ?", (word_id,))
+            candidate_docs.update(row[0] for row in self.cursor.fetchall())
+            self.cursor.execute("SELECT page_id FROM posting_title WHERE word_id = ?", (word_id,))
+            candidate_docs.update(row[0] for row in self.cursor.fetchall())
+
+        phrase_matches = []
+        valid_docs = []
+        for page_id in candidate_docs:
+            has_all_phrases = True
+            for phrase in phrases:
+                in_body = self.check_phrase_in_doc(page_id, phrase, "posting_body")
+                in_title = self.check_phrase_in_doc(page_id, phrase, "posting_title")
+                if not (in_body or in_title):
+                    has_all_phrases = False
+                    break
+            if has_all_phrases:
+                valid_docs.append(page_id)
+
+        for phrase in phrases:
+            matched_pages = []
+            for page_id in valid_docs[:5]:
+                in_body = self.check_phrase_in_doc(page_id, phrase, "posting_body")
+                in_title = self.check_phrase_in_doc(page_id, phrase, "posting_title")
+                if in_body or in_title:
+                    self.cursor.execute("SELECT title, url FROM page WHERE page_id = ?", (page_id,))
+                    row = self.cursor.fetchone()
+                    if row:
+                        matched_pages.append({
+                            "title": row[0],
+                            "url": row[1],
+                            "location": "title" if in_title else "body",
+                        })
+
+            phrase_matches.append({
+                "phrase": " ".join(phrase),
+                "matched_pages": matched_pages,
+            })
+
+        return {
+            "raw_tokens": raw_tokens,
+            "token_details": token_details,
+            "free_terms": free_terms,
+            "phrases": phrases,
+            "candidate_doc_count": len(candidate_docs),
+            "valid_doc_count": len(valid_docs),
+            "phrase_matches": phrase_matches,
+            "title_weight": 2.0,
+        }
+
     def _tokenize(self, text):
         tokens = re.findall(r"[a-zA-Z]+", text.lower())
         result = []
