@@ -190,7 +190,7 @@ class SearchEngine:
                 
         return False
 
-    def search(self, query):
+    def search(self, query, title_boost=True):
         """
         Executes a search query and returns the top 50 ranked documents.
         Ranking uses Cosine Similarity with TF-IDF: tf * idf / max(tf).
@@ -253,7 +253,7 @@ class SearchEngine:
         # Title terms are weighted TITLE_WEIGHT times more than body terms.
         # This also fixes the case where a query term appears only in the title
         # (which previously produced a zero body dot-product and thus a zero score).
-        TITLE_WEIGHT = 2.0
+        TITLE_WEIGHT = 2.0 if title_boost else 1.0
 
         # Compute Document Vectors and Cosine Similarity
         scores = []

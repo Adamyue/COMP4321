@@ -43,9 +43,11 @@ def index():
     results = []
     query = ""
     error = None
+    title_boost = True
 
     if request.method == "POST":
         query = request.form.get("query", "").strip()
+        title_boost = request.form.get("title_boost") == "on"
         if query:
             try:
                 inspection = engine.explain_query(query)
@@ -59,6 +61,7 @@ def index():
         results=results,
         query=query,
         error=error,
+        title_boost=title_boost,
     )
 
 
